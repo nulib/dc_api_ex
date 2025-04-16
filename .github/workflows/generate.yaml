@@ -1,0 +1,37 @@
+---
+name: Generate Elixir Client for DC API Spec
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'URL of the OpenAPI spec to use'
+        required: true
+        default: 'https://api.dc.library.northwestern.edu/docs/v2/spec/openapi.yaml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  actions: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: openapi-generators/openapitools-generator-action@v1.5.0
+        with:
+          generator: elixir
+          openapi-url: ${{ github.event.inputs.source }}
+          config-file: ./generator-config.yaml
+      - name: Set GitHub Deploy Key
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.REPO_PRIVATE_KEY }}
+      - name: Commit and push changes
+        run: |
+          git config --global user.email "$(git log --pretty=format:"%ae" | head -1)"
+          git config --global user.name "$(git log --pretty=format:"%an" | head -1)"
+          git add .
+          git commit -m "Update Elixir client from OpenAPI spec"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
